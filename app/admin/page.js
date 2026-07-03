@@ -34,8 +34,13 @@ export default function AdminPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: pass, state: next }),
       });
-      if (r.status === 401) { setSaveState("Sesión no válida"); setAuthed(false); return false; }
-      if (!r.ok) { setSaveState("Error al guardar"); return false; }
+      if (r.status === 401) { setSaveState("Contraseña incorrecta"); setAuthed(false); return false; }
+      if (!r.ok) {
+        let detail = "";
+        try { const j = await r.json(); detail = j && j.error ? ` (${j.error})` : ""; } catch (e) {}
+        setSaveState(`Error del servidor${detail || ` (${r.status})`}`);
+        return false;
+      }
       setSaveState("Guardado ✓");
       setTimeout(() => setSaveState(""), 1500);
       return true;
@@ -45,12 +50,10 @@ export default function AdminPage() {
   const commit = (nextResults = results, nextMarc = marc, nextGol = gol) =>
     save({ results: nextResults, marc: nextMarc, gol: nextGol });
 
-  // gate: verifica la clave intentando un guardado del estado actual
+  // gate: intenta guardar el estado actual; el mensaje de error queda fijado por save()
   const tryEnter = async () => {
-    setSaveState("Verificando…");
     const ok = await save({ results, marc, gol });
-    if (ok) { setAuthed(true); setSaveState(""); }
-    else if (saveState !== "Error de red") setSaveState("Contraseña incorrecta");
+    if (ok) setAuthed(true);
   };
 
   if (!loaded) return <div className="ppload">Cargando…</div>;
@@ -89,8 +92,8 @@ function Gate({ pass, setPass, onEnter, msg }) {
             onKeyDown={(e) => e.key === "Enter" && onEnter()} />
           <button onClick={onEnter}>Entrar</button>
         </div>
-        {msg && msg !== "Verificando…" && <div className="gate-err">{msg}</div>}
-        {msg === "Verificando…" && <div className="mut" style={{ marginTop: 12, fontSize: 13 }}>Verificando…</div>}
+        {msg && msg !== "Guardando…" && <div className="gate-err">{msg}</div>}
+        {msg === "Guardando…" && <div className="mut" style={{ marginTop: 12, fontSize: 13 }}>Verificando…</div>}
       </div>
     </main>
   );
